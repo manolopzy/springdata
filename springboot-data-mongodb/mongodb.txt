@@ -1,0 +1,290 @@
+2022/10/22 reference book: Seven databases in seven weeks
+
+MongoDB es una base de datos de documentos, que le permite 
+almacenar objetos anidados (nesting objects) a la profundidad 
+que desee, y puede consultar esos datos anidados en
+una moda ad hoc (on the fly 即時生效/動態產生).
+No aplica ningún esquema (schemaless), por lo tanto los documentos 
+pueden contener campos o tipos que ningún otro documento contiene.
+
+
+1 download mongodb server community edition here:
+https://www.mongodb.com/try/download/community
+2 in order to communicate with the server, 
+download mongodb shell tool here:
+https://www.mongodb.com/developer-tools
+or just use mongodb compass installed with the server.
+
+One of the ways to launch the mongodb server is 
+first create a new system variable for the server's 
+bin directory, so we are be able to execute the mongod 
+executable program under that directory to start the server 
+in our windows's Command Prompt.
+
+Open Command Prompt/Powershell
+1 Create a database using the following command:
+"use databaseName"
+for example
+>use test
+2 Create a collection called "towns" in your database using the following:
+db.towns.insertOne({
+name: "New York",
+population: 22200000,
+lastCensus: ISODate("2016-07-01"),
+famousFor: [ "the MOMA", "food", "Derek Jeter" ],
+mayor : {
+name : "Bill de Blasio",
+party : "D"
+}
+})
+3 Query the data in the "towns" collection:
+>db.towns.find()
+results:
+[
+  {
+    _id: ObjectId("6353c0ab69dea3d89e86d22c"),
+    name: 'New York',
+    population: 22200000,
+    lastCensus: ISODate("2016-07-01T00:00:00.000Z"),
+    famousFor: [ 'the MOMA', 'food', 'Derek Jeter' ],
+    mayor: { name: 'Bill de Blasio', party: 'D' }
+  }
+]
+
+In a relational database management system, there are 
+one to one, one to many and many to many relationships 
+among the domain models of a project, we can use the 
+"foreign key" to join different tables when execute 
+queries. But in MongoDB, the nested relationship is 
+its nature, we retrieve a document and all of its nested 
+content with a single call, no need of join executions.
+So in MongoDB you can nest your document to whatever depth 
+you want.
+
+
+4 Show the collections in a database:
+>show collections
+results:
+equips
+towns
+
+5 There are two help commands are very useful:
+>db.help()
+>db.towns.help()
+they will show you the commands that you can use in these two 
+levels.
+
+6 You can inspect a function's structure or source code through the following command:
+> db.towns.insertOne
+[Function: insertOne] AsyncFunction {
+  apiVersions: [ 1, Infinity ],
+  serverVersions: [ '3.2.0', '999.999.999' ],
+  returnsPromise: true,
+  topologies: [ 'ReplSet', 'Sharded', 'LoadBalanced', 'Standalone' ],
+  returnType: { type: 'unknown', attributes: {} },
+  deprecated: false,
+  platforms: [ 'Compass', 'Browser', 'CLI' ],
+  isDirectShellCommand: false,
+  acceptsRawInput: false,
+  shellCommandCompleter: undefined,
+  help: [Function (anonymous)] Help
+}
+> db.towns.insert
+[Function: insert] AsyncFunction {
+  apiVersions: [ 1, Infinity ],
+  serverVersions: [ '0.0.0', '3.6.0' ],
+  deprecated: true,
+  returnsPromise: true,
+  topologies: [ 'ReplSet', 'Sharded', 'LoadBalanced', 'Standalone' ],
+  returnType: { type: 'unknown', attributes: {} },
+  platforms: [ 'Compass', 'Browser', 'CLI' ],
+  isDirectShellCommand: false,
+  acceptsRawInput: false,
+  shellCommandCompleter: undefined,
+  help: [Function (anonymous)] Help
+}
+7 Podemos definir nuestras propias funciones:
+test> function insertCity(
+name, population, lastCensus,
+famousFor, mayorInfo
+) {
+db.towns.insertOne({
+name: name,
+population: population,
+lastCensus: ISODate(lastCensus),
+famousFor: famousFor,
+mayor : mayorInfo
+});
+}
+[Function: insertCity]
+test> db.towns.insertCity
+test.towns.insertCity
+
+> insertCity("Punxsutawney", 6200, '2016-01-31',
+["Punxsutawney Phil"], { name : "Richard Alexander" }
+)
+> insertCity("Portland", 582000, '2016-09-20',
+["beer", "food", "Portlandia"], { name : "Ted Wheeler", party : "D" }
+)
+
+> db.towns.find()
+[
+  {
+    _id: ObjectId("6353c0ab69dea3d89e86d22c"),
+    name: 'New York',
+    population: 22200000,
+    lastCensus: ISODate("2016-07-01T00:00:00.000Z"),
+    famousFor: [ 'the MOMA', 'food', 'Derek Jeter' ],
+    mayor: { name: 'Bill de Blasio', party: 'D' }
+  },
+  {
+    _id: ObjectId("6353d106b40849aec602cb81"),
+    name: 'Punxsutawney',
+    population: 6200,
+    lastCensus: ISODate("2016-01-31T00:00:00.000Z"),
+    famousFor: [ 'Punxsutawney Phil' ],
+    mayor: { name: 'Richard Alexander' }
+  },
+  {
+    _id: ObjectId("6353d185b40849aec602cb82"),
+    name: 'Portland',
+    population: 582000,
+    lastCensus: ISODate("2016-09-20T00:00:00.000Z"),
+    famousFor: [ 'beer', 'food', 'Portlandia' ],
+    mayor: { name: 'Ted Wheeler', party: 'D' }
+  }
+]
+
+> db.countries.insertOne({
+_id : "us",
+name : "United States",
+exports : {
+foods : [
+{ name : "bacon", tasty : true },
+{ name : "burgers" }
+]
+}
+})
+> db.countries.insertOne({
+_id : "ca",
+name : "Canada",
+exports : {
+foods : [
+{ name : "bacon", tasty : false },
+{ name : "syrup", tasty : true }
+]
+}
+})
+> db.countries.find()
+[
+  {
+    _id: 'us',
+    name: 'United States',
+    exports: { foods: [ { name: 'bacon', tasty: true }, { name: 'burgers' } ] }
+  },
+  {
+    _id: 'ca',
+    name: 'Canada',
+    exports: {
+      foods: [
+        { name: 'bacon', tasty: false },
+        { name: 'syrup', tasty: true }
+      ]
+    }
+  }
+]
+> db.countries.countDocuments()
+2
+> db.countries.insert({
+_id : "mx",
+name : "Mexico",
+exports : {
+foods : [{
+name : "salsa",
+tasty : true,
+condiment : true
+}]
+}
+})
+return results
+{ acknowledged: true, insertedIds: { '0': 'mx' } }
+
+8 Queries with conditions:
+Find a country that not only exports bacon 
+but also exports tasty bacon.
+db.countries.find(
+{ 'field':'value', 'field':'value', ... },
+{ _id : 0, name : 1, ... }
+)
+the first json parameter define the match conditions 
+the second json parameter define the output restrictions
+_id : 0 means to hide the filed _id, name : 1 means to show the name field.
+
+> db.countries.find(
+{ 'exports.foods.name' : 'bacon', 'exports.foods.tasty' : true },
+{ _id : 0, name : 1 }
+)
+
+results:
+[ { name: 'United States' }, { name: 'Canada' } ]
+
+db.countries.find(
+{
+$or : [
+{ _id : "mx" },
+{ name : "United States" }
+]
+},
+{ _id:1 }
+)
+
+{"_id" : "us" }
+{ "_id" : "mx" }
+
+
+Some commands for querying
+
+Command Description
+$ne Not equal to
+$lt Less than
+$lte Less than or equal to
+$gt Greater than
+$gte Greater than or equal to
+$exists Check for the existence of a field
+$all Match all elements in an array
+$in Match any elements in an array
+$nin Does not match any elements in an array
+$elemMatch Match all fields in an array of nested documents
+$or or
+$nor Not or
+$size Match array of given size
+$mod Modulus
+$type Match if field is a given datatype
+$not Negate the given operator check
+
+
+
+
+
+9 Updating 
+
+db.towns.update(
+{ _id : ObjectId("4d0ada87bb30773266f39fe5") },
+{ $set : { "state" : "OR" } }
+);
+
+Some commands for updating
+
+$set Sets the given field with the given value
+$unset Removes the field
+$inc Adds the given field by the given number
+$pop Removes the last (or first) element from an array
+$push Adds the value to an array
+$pushAll Adds all values to an array
+$addToSet Similar to push, but won’t duplicate values
+$pull Removes matching values from an array
+$pullAll Removes all matching values from an array
+
+
+
+
