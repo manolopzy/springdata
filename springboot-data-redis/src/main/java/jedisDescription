@@ -1,0 +1,183 @@
+Redis OM Spring currently works only with Jedis.
+
+Using redis to store string, list, hash, set, ordered set data structures
+Note: It is not suitable to store complicated data structure that 
+needs to be updated partially and frequently. The values stored in 
+it can be only retrieved or updated entirely.
+If our data needs to be manipulated as a whole, then Redis could be 
+a good choice.
+We can convert our java object to json, or byte array to store in redis, 
+but we can not update partially of that data.
+
+
+1 Connecting to Redis
+
+1.1 RedisConnection and RedisConnectionFactory
+
+RedisConnection's getNativeConnection returns the raw, underlying 
+object used for communication.
+And active RedisConnection objects are created through RedisConnectionFactory.
+The factory also let us do transparent exception translation, for example, 
+through the use of @Repository and AOP.
+The factory returns a new connection or existing connection depending on 
+the underlying configuration (if a pool or shared native connection is used)
+
+1.2 RedisTemplate
+
+The RedisTemplate offers a high-level abstraction for interactions with Redis, 
+while RedisConnection provides low-level methods that receive and 
+return binary values. So the template takes care of serialization, 
+deserialization and connection management.
+Further more, the template classifies the operations into different groups:
+redisTemplate.opsForHash().put(TOWNS_HASH_KEY, town.getId(), town);
+redisTemplate.opsForCluster();
+redisTemplate.opsForList();
+redisTemplate.opsForSet();
+redisTemplate.opsForZSet();
+redisTemplate.opsForHash();
+redisTemplate.opsForStream();
+redisTemplate.opsForValue();
+redisTemplate.opsForHyperLogLog();
+redisTemplate.opsForGeo();
+The template is thread safe, can be reused across multiple instances.
+
+1.3 Serializers and Mappers
+org.springframework.data.redis.serializer package handles the conversion 
+between user type data and raw data (vice versa), it is up to 
+you to decide whether the information or data gets translated into 
+String or other objects like XML, JSON or byte array.
+For specific examples to map a domain object to a hash table,
+See "TestSpringRedisMappers"
+
+1.4 Working with Spring redis cluster
+1.4.1 Configuration
+
+ spring.redis.cluster.nodes=127.0.0.1:23679,127.0.0.1:23680,127.0.0.1:23681
+ spring.redis.cluster.timeout=5
+ spring.redis.cluster.max-redirects=3
+ spring.redis.cluster.password=foobar
+
+1.4.2 Redis Cluster Connection
+RedisClusterConnection extends RedisConnection
+A redis cluster means there are more than one redis database machines 
+that we can access for data storing and retrieving.
+In this case, it behaves differently from single-node Redis, even 
+a master-slaves environment, because when we save a key-value pair to 
+the cluster, there will be a automatic sharding which maps the key 
+to one of 16384 slots.
+sharding also is referred as horizontal partitioning particion / division
+La distincion entre el de horizontal y vertical consiste en 
+partir una base de dato verticalmente, es decir, 
+guardar diferentes tablas en diferentes maquinas o bases de datos.
+Por ejemplo, en vuestro proyecto, hay tabla "User" y tabla "Photo", 
+guardamos "User" y "Photo" en dos maquinas diferentes.
+partir una base de dato horizontalmente es distribuir o separar las diferentes 
+filas (rows) en varias bases de datos.
+
+En el caso de redis, los datos son de forma clave-valor, y 
+cada clave es unica, entonces, podemos implementar un algoritmo 
+utilizando las claves para distribuir los datos a diferentes 
+maquinas. Por ejemplo, hash(key) % el numero de bases de datos
+
+But in my opinion, the best practice is to use microservice, 
+each microservice has its own database first.
+
+
+using Jedis in a multithreaded environment
+
+1 You should not use the same Jedis instance for multiple thread, you 
+will get strange errors. A single Jedis instance is not threadsafe!
+2 JedisPool is a thread safe pool of network connections.
+3 JedisPool pool = new JedisPool(new JedisPoolConfig(), "localhost");
+You can store the pool somewhere as a static variable, which is thread safe.
+
+/// Jedis implements Closeable. Hence, the jedis instance will be auto-closed after the last statement.
+try (Jedis jedis = pool.getResource()) {
+  /// ... do stuff here ... for example
+  jedis.set("foo", "bar");
+  String foobar = jedis.get("foo");
+  jedis.zadd("sose", 0, "car"); 
+  jedis.zadd("sose", 0, "bike"); 
+  Set<String> sose = jedis.zrange("sose", 0, -1);
+}
+/// ... when closing your application:
+pool.close();
+
+If you can't use try-with-resource, you can still enjoy with Jedis.close().
+
+Jedis jedis = null;
+try {
+  jedis = pool.getResource();
+  /// ... do stuff here ... for example
+  jedis.set("foo", "bar");
+  String foobar = jedis.get("foo");
+  jedis.zadd("sose", 0, "car"); 
+  jedis.zadd("sose", 0, "bike"); 
+  Set<String> sose = jedis.zrange("sose", 0, -1);
+} finally {
+  // You have to close jedis object. If you don't close then
+  // it doesn't release back to pool and you can't get a new
+  // resource from pool.
+  if (jedis != null) {
+    jedis.close();
+  }
+}
+/// ... when closing your application:
+pool.close();
+
+4 Setting up master/slave distribution
+enable replication
+Redis is primarily written for master/slave distribution which 
+means that write requests have to be explicitly addressed 
+to the master server, which replicates changes to slave servers.
+Read requests then can be (but must not necessarily) 
+addressed to the slaves, which alleviates 減輕緩和 the master.
+
+To enable replication, there are two ways to tell a 
+slave it will be "slaveOf" a given master:
+Specify it in the respective section in the Redis Config file of 
+the redis server on a given jedis instance (see above), call the 
+slaveOf method and pass IP (or "localhost") and port as argument:
+
+jedis.slaveof("localhost", 6379);  
+// if the master is on the same PC which runs your code
+jedis.slaveof("192.168.1.35", 6379); 
+
+Note: since Redis 2.6 slaves are read only by default, so write 
+requests to them will result in an error.
+If you change that setting they will behave like normal redis 
+servers and accept write requests without errors, but the changes 
+won't be replicated, and hence those changes are at risk to be 
+silently overwritten, if you mix up your jedis instances.
+
+disable replication / upon failing master, promote a slave
+In case your master goes down, you may want to promote a slave 
+to be the new master. You should first (try to) disable replication 
+of the offline master first, then, in case you have several slaves, 
+enable replication of the remaining slaves to the new master:
+
+slave1jedis.slaveofNoOne();
+slave2jedis.slaveof("192.168.1.36", 6379); 
+
+
+Java serialization
+Serialization is the conversion of the state of an object into a 
+byte stream; deserialization does the opposite. Stated differently, 
+serialization is the conversion of a Java object into a static 
+stream (sequence) of bytes, which we can then save to a database 
+or transfer over a network.
+
+Serialization and Deserialization
+ Classes that are eligible for serialization need to implement a 
+ special marker interface, Serializable. 
+ ObjectOutputStream:
+public final void writeObject(Object o) throws IOException;
+ ObjectInputStream:
+public final Object readObject() throws IOException, ClassNotFoundException;
+
+Transient in Java is used to indicate that a field should not 
+be part of the serialization process. 
+ 
+
+
+
