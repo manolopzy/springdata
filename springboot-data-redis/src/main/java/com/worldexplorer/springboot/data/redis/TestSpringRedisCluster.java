@@ -11,22 +11,22 @@ import com.worldexplorer.springboot.data.redis.configuration.RedisClusterConfig;
 import com.worldexplorer.springboot.data.redis.configuration.RedisClusterConfigurationProperties;
 
 public class TestSpringRedisCluster {
-public static void main(String[] args) {
-		
+
+	public static void main(String[] args) {
+
 		System.out.println("Let's get started!");
 		// specify the configuration class to the container
 		// we can pass multiple configuration class to spring
 		@SuppressWarnings("resource")
-		ApplicationContext context = new AnnotationConfigApplicationContext(RedisClusterConfigurationProperties.class, RedisClusterConfig.class);
-		
+		ApplicationContext context = new AnnotationConfigApplicationContext(RedisClusterConfig.class);
+
 		@SuppressWarnings("unchecked")
-		RedisTemplate<String, Object> redisTemplate = (RedisTemplate<String, Object>)context.getBean("redisTemplate");
-		
-		RedisConnectionFactory connectionFactory =  context.getBean(RedisConnectionFactory.class);
+		RedisTemplate<String, Object> redisTemplate = (RedisTemplate<String, Object>) context.getBean("redisTemplate");
+
+		RedisConnectionFactory connectionFactory = context.getBean(RedisConnectionFactory.class);
 		RedisClusterConnection clusterConnection = connectionFactory.getClusterConnection();
-		//key value
-		ClusterOperations<String, Object> clusterOperations =  redisTemplate.opsForCluster();
-		
-		
+		// key value
+		ClusterOperations<String, Object> clusterOperations = redisTemplate.opsForCluster();
+
 	}
 }
