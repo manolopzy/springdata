@@ -9,7 +9,21 @@ import org.springframework.data.redis.core.RedisHash;
  * {@link @RedisHash} + its corresponding repository
  * 
  * with {@link @RedisHash} annotation, spring data redis will 
- * create a hash map
+ * create a hash map and a set
+ * in the set, it will store all players's primary key id
+ * smembers "player"
+ * "219540139"
+ * each player will have a hash table whose name is prefix of the 
+ * table + the primary key
+ * 
+ * so, after inserting two players in redis using this annotation:
+ *  keys *
+1) "player"
+2) "player:219540139"
+3) "player:-1133931209"
+ * "player" is the set storing all players's primary key
+ * and we have gotten two hashes, each player has its own.
+ * 
  * @author tanku
  *
  */
